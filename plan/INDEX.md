@@ -22,7 +22,7 @@ plan/
 ### Features
 | File | Description | Status |
 |---|---|---|
-| | | |
+| [ai-product-creation.md](features/ai-product-creation.md) | AI-native product creation — images, descriptions, SEO, categories, all generated from minimal input | idea |
 
 ### Architecture
 | File | Description | Status |
