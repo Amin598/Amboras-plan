@@ -17,6 +17,15 @@ plan/
 
 ---
 
+## Core Documents
+
+| File | Description | Status |
+|---|---|---|
+| [mvp.md](mvp.md) | Amboras MVP vision — what we ship first, 11 pillars, success criteria, pricing philosophy | validated |
+| [mvp-2-weeks.md](mvp-2-weeks.md) | Real 2-week MVP — 5 pieces, architecture, sprint breakdown, tech stack | validated |
+
+---
+
 ## Documents
 
 ### Features
