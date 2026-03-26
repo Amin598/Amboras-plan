@@ -21,8 +21,7 @@ plan/
 
 | File | Description | Status |
 |---|---|---|
-| [mvp.md](mvp.md) | Amboras MVP vision — what we ship first, 11 pillars, success criteria, pricing philosophy | validated |
-| [mvp-2-weeks.md](mvp-2-weeks.md) | Real 2-week MVP — 5 pieces, architecture, sprint breakdown, tech stack | validated |
+| [CW12-CW13-sprint.md](CW12-CW13-sprint.md) | MVP sprint plan — architecture, online store, Stripe, analytics, cleanup (March 16–29) | in-progress |
 
 ---
 
@@ -31,7 +30,10 @@ plan/
 ### Features
 | File | Description | Status |
 |---|---|---|
+| [ai-module.md](features/ai-module.md) | AI module — unified AI chat system for the entire admin (full-page + contextual per page), modular tools, full DB logging | decided |
 | [ai-product-creation.md](features/ai-product-creation.md) | AI-native product creation — images, descriptions, SEO, categories, all generated from minimal input | idea |
+| [auto-invoicing.md](features/auto-invoicing.md) | Auto-generate legally compliant invoices (Rechnung) per order — Germany/EU first, solves a pain point Shopify won't touch | idea |
+| [domain-and-hosting.md](features/domain-and-hosting.md) | Built-in domain search, registration, and zero-config hosting — no external registrar, no DNS, no hosting provider needed | idea |
 
 ### Architecture
 | File | Description | Status |

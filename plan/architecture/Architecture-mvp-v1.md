@@ -1,0 +1,308 @@
+# Amboras System Architecture Diagram
+(we use medusas shopsystem as backend and make it fitting for our usecase)
+
+## High-Level Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              INTERNET                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+        ┌────────────────┐  ┌──────────────┐  ┌──────────────┐
+        │  User Browser  │  │   Customers  │  │  Admin Users │
+        │   (Merchant)   │  │  (Shopping)  │  │   (Staff)    │
+        └────────────────┘  └──────────────┘  └──────────────┘
+                    │               │               │
+                    └───────────────┼───────────────┘
+                                    │
+                                    ▼
+        ┌────────────────────────────────────────────────────────┐
+        │         ORCHESTRATOR PLATFORM (Fly.io)                 │
+        │                                                         │
+        │  ┌──────────────────────────────────────────────────┐ │
+        │  │  Next.js Frontend (amboras.com)                  │ │
+        │  │  - OAuth login                                   │ │
+        │  │  - Store dashboard                               │ │
+        │  │  - Analytics aggregator                          │ │
+        │  │  - Billing management                            │ │
+        │  └──────────────────────────────────────────────────┘ │
+        │                        │                               │
+        │  ┌──────────────────────────────────────────────────┐ │
+        │  │  Backend API (Node.js/NestJS)                    │ │
+        │  │  - User management                               │ │
+        │  │  - Store provisioning                            │ │
+        │  │  - Deployment orchestration                      │ │
+        │  │  - Medusa admin proxy                            │ │
+        │  └──────────────────────────────────────────────────┘ │
+        │                        │                               │
+        │  ┌──────────────────────────────────────────────────┐ │
+        │  │  PostgreSQL (Orchestrator DB)                    │ │
+        │  │  - Users, stores, deployments                    │ │
+        │  └──────────────────────────────────────────────────┘ │
+        │                        │                               │
+        │  ┌──────────────────────────────────────────────────┐ │
+        │  │  Redis                                           │ │
+        │  │  - Job queues, caching                           │ │
+        │  └──────────────────────────────────────────────────┘ │
+        └────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+        ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+        │  Git Provider   │ │    Fly.io API   │ │  Stripe API     │
+        │  (GitHub)       │ │  (Machines API) │ │  (Billing)      │
+        └─────────────────┘ └─────────────────┘ └─────────────────┘
+                                    │
+                                    ▼
+        ┌────────────────────────────────────────────────────────┐
+        │           PER-STORE MACHINES (Fly.io)                  │
+        │                                                         │
+        │  Each store gets 3 machines:                           │
+        │  - Staging machine (auto-suspend)                      │
+        │  - Production machine (always on)                      │
+        └────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+        ┌────────────────────────────────────────────────────────┐
+        │         SINGLE STORE MACHINE ARCHITECTURE              │
+        │         (store-abc-prod.fly.dev)                       │
+        │                                                         │
+        │  ┌──────────────────────────────────────────────────┐ │
+        │  │  Fly.io Machine (VM)                             │ │
+        │  │                                                   │ │
+        │  │  ┌────────────────────────────────────────────┐  │ │
+        │  │  │  OPTION A: Monolithic Process              │  │ │
+        │  │  │                                            │  │ │
+        │  │  │  ┌──────────────────────────────────────┐ │  │ │
+        │  │  │  │  Node.js Process (Port 9000)         │ │  │ │
+        │  │  │  │                                      │ │  │ │
+        │  │  │  │  ├─ Medusa Backend                  │ │  │ │
+        │  │  │  │  ├─ Next.js Storefront (Port 3000)  │ │  │ │
+        │  │  │  │  └─ AI Service (Claude API calls)   │ │  │ │
+        │  │  │  │                                      │ │  │ │
+        │  │  │  └──────────────────────────────────────┘ │  │ │
+        │  │  │                                            │  │ │
+        │  │  └────────────────────────────────────────────┘  │ │
+        │  │                                                   │ │
+        │  │  ┌────────────────────────────────────────────┐  │ │
+        │  │  │  OPTION B: Multi-Process (Recommended)    │  │ │
+        │  │  │                                            │  │ │
+        │  │  │  ┌──────────────────────────────────────┐ │  │ │
+        │  │  │  │  Process 1: Medusa (Port 9000)       │ │  │ │
+        │  │  │  │  - Medusa backend API                │ │  │ │
+        │  │  │  │  - Admin dashboard                   │ │  │ │
+        │  │  │  │  - Product/Order management          │ │  │ │
+        │  │  │  └──────────────────────────────────────┘ │  │ │
+        │  │  │            │                               │  │ │
+        │  │  │  ┌──────────────────────────────────────┐ │  │ │
+        │  │  │  │  Process 2: Next.js (Port 3000)      │ │  │ │
+        │  │  │  │  - Customer-facing storefront        │ │  │ │
+        │  │  │  │  - Calls Medusa API for data         │ │  │ │
+        │  │  │  └──────────────────────────────────────┘ │  │ │
+        │  │  │            │                               │  │ │
+        │  │  │  ┌──────────────────────────────────────┐ │  │ │
+        │  │  │  │  Process 3: AI Service (Port 8000)   │ │  │ │
+        │  │  │  │  - Express/Fastify API               │ │  │ │
+        │  │  │  │  - Chat endpoints                    │ │  │ │
+        │  │  │  │  - Product generation                │ │  │ │
+        │  │  │  │  - Claude API integration            │ │  │ │
+        │  │  │  │  - Store context caching             │ │  │ │
+        │  │  │  └──────────────────────────────────────┘ │  │ │
+        │  │  │                                            │  │ │
+        │  │  └────────────────────────────────────────────┘  │ │
+        │  │                                                   │ │
+        │  │  ┌────────────────────────────────────────────┐  │ │
+        │  │  │  PostgreSQL (Store DB)                     │  │ │
+        │  │  │  - Products, orders, customers, carts      │  │ │
+        │  │  │  - Fly.io volume (persistent)              │  │ │
+        │  │  └────────────────────────────────────────────┘  │ │
+        │  │                                                   │ │
+        │  │  ┌────────────────────────────────────────────┐  │ │
+        │  │  │  Redis (Cache)                             │  │ │
+        │  │  │  - Session cache, API cache                │  │ │
+        │  │  └────────────────────────────────────────────┘  │ │
+        │  │                                                   │ │
+        │  └──────────────────────────────────────────────────┘ │
+        └────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+        ┌────────────────────────────────────────────────────────┐
+        │               EXTERNAL SERVICES                        │
+        │                                                         │
+        │  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
+        │  │ Claude   │  │ Stripe   │  │ AWS S3   │            │
+        │  │ API      │  │ Payments │  │ Storage  │            │
+        │  └──────────┘  └──────────┘  └──────────┘            │
+        └────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Deployment Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    DEPLOYMENT WORKFLOW                              │
+└─────────────────────────────────────────────────────────────────────┘
+
+USER ACTION:
+┌──────────────┐
+│ Merchant     │
+│ clicks       │
+│ "Deploy"     │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ ORCHESTRATOR BACKEND                                             │
+│                                                                  │
+│ 1. Receive deploy request                                       │
+│ 2. Queue deployment job (Redis)                                 │
+│ 3. Get store config from DB                                     │
+│ 4. Determine target environment (dev/staging/prod)              │
+│ 5. Get git commit SHA or use latest                             │
+└──────┬───────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ DEPLOYMENT WORKER                                                │
+│                                                                  │
+│ 1. Call Fly.io API: Update machine with new git ref             │
+│ 2. Or: Build Docker image → Push to registry → Deploy           │
+└──────┬───────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ FLY.IO MACHINE                                                   │
+│                                                                  │
+│ 1. Receive deployment command                                   │
+│ 2. Git pull latest code                                         │
+│ 3. Run: npm install                                             │
+│ 4. Run: npm run build (Medusa + Next.js)                        │
+│ 5. Start processes:                                             │
+│    - Medusa backend (pm2 or supervisor)                         │
+│    - Next.js storefront                                         │
+│    - AI service (if separate)                                   │
+│ 6. Health check: GET /health (retry 10 times)                   │
+└──────┬───────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ HEALTH CHECK SUCCESS?                                            │
+│                                                                  │
+│ YES → Mark deployment successful                                │
+│       Notify user via webhook/email                             │
+│       Update orchestrator DB                                    │
+│                                                                  │
+│ NO  → Rollback to previous version                              │
+│       Notify user of failure                                    │
+│       Keep old version running                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Git + Environment Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    GIT WORKFLOW                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+REPOSITORY: github.com/amboras-stores/store-abc
+
+Branches:
+├─ dev      → Dev machine (auto-deploy on push)
+├─ staging  → Staging machine (auto-deploy on push)
+└─ main     → Production machine (manual deploy)
+
+WORKFLOW:
+
+1. Merchant makes changes via:
+   - Medusa admin (products, settings)
+   - AI chat (generates code changes)
+   - Direct code push (for developers)
+
+2. Changes committed to git:
+   ┌─────────────┐
+   │  Git Push   │
+   │  to 'dev'   │
+   └──────┬──────┘
+          │
+          ▼
+   ┌─────────────────────┐
+   │  GitHub Webhook     │
+   │  → Orchestrator     │
+   └──────┬──────────────┘
+          │
+          ▼
+   ┌─────────────────────┐
+   │  Deploy to          │
+   │  Dev Machine        │
+   └─────────────────────┘
+
+3. Test on dev, then merge to staging:
+   git checkout staging
+   git merge dev
+   git push origin staging
+   → Auto-deploy to staging machine
+
+4. Test on staging, then merge to main:
+   git checkout main
+   git merge staging
+   git push origin main
+   → Merchant clicks "Deploy to Production"
+   → Orchestrator deploys to prod machine
+```
+
+---
+
+## Data Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DATA FLOW                                    │
+└─────────────────────────────────────────────────────────────────┘
+
+CUSTOMER SHOPPING:
+Customer → Next.js Storefront → Medusa API → PostgreSQL
+                ↓
+         (Add to cart, checkout)
+                ↓
+         Stripe payment
+                ↓
+         Order created
+
+
+MERCHANT MANAGING STORE:
+Merchant → Medusa Admin → Medusa API → PostgreSQL
+                              ↓
+                        Git commit
+                              ↓
+                        Deploy to machine
+
+
+MERCHANT USING AI:
+Merchant → AI Service (Port 8000)
+              ↓
+         Claude API call
+              ↓
+         Generate products/content
+              ↓
+         Call Medusa API to create
+              ↓
+         Save to PostgreSQL
+
+
+ANALYTICS:
+Store Machine → Export metrics
+                      ↓
+                Orchestrator API
+                      ↓
+                Orchestrator DB
+                      ↓
+                Analytics Dashboard
